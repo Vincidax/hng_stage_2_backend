@@ -1,15 +1,17 @@
 const express = require('express');
-const router = express.Router();
-const {
-  getOrganisations,
-  getOrganisationById,
-  createNewOrganisation,
-  addUserToOrganisation,
-} = require('../controllers/organisationController');
+const { check } = require('express-validator');
+const { createOrg, getOrgs } = require('../controllers/organisationsController');
+const authMiddleware = require('../middleware/authMiddleware');
 
-router.get('/', getOrganisations);
-router.get('/:orgId', getOrganisationById);
-router.post('/', createNewOrganisation);
-router.post('/:orgId/users', addUserToOrganisation);
+const router = express.Router();
+
+router.post(
+  '/',
+  authMiddleware,
+  [check('name').notEmpty().withMessage('Organisation name is required')],
+  createOrg
+);
+
+router.get('/', authMiddleware, getOrgs);
 
 module.exports = router;

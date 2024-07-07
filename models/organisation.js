@@ -1,40 +1,74 @@
 const db = require('../db');
 
-const createOrganisationTable = async () => {
-  const queryText = `
-    CREATE TABLE IF NOT EXISTS organisations (
-      orgId SERIAL PRIMARY KEY,
-      name VARCHAR(255) NOT NULL,
-      description TEXT
-    );
-  `;
-  await db.query(queryText);
-};
+/**
+ * Creates a new organisation in the database.
+ * @param {string} orgId - The unique organisation ID.
+ * @param {string} name - The organisation's name (required).
+ * @param {string} description - The organisation's description.
+ * @returns {Promise<object>} The created organisation object.
+ */
+const createOrganisation = async (orgId, name, description) => {
+  if (!name) {
+    throw new Error('Name is required for organisation creation.');
+  }
 
-const createOrganisation = async (organisation) => {
-  const queryText = `
-    INSERT INTO organisations (name, description)
-    VALUES ($1, $2)
+  const query = `
+    INSERT INTO organisations (orgid, name, description)
+    VALUES ($1, $2, $3)
     RETURNING *;
   `;
-  const values = [organisation.name, organisation.description];
-  const { rows } = await db.query(queryText, values);
-  return rows[0];
+  const values = [orgId, name, description];
+
+  try {
+    const { rows } = await db.query(query, values);
+    return rows[0];
+  } catch (error) {
+    throw error;
+  }
 };
 
-const getOrganisationsByUserId = async (userId) => {
-  const queryText = `
-    SELECT o.orgId, o.name, o.description
-    FROM organisations o
-    INNER JOIN user_organisations uo ON o.orgId = uo.orgId
-    WHERE uo.userId = $1;
+/**
+ * Retrieves an organisation from the database based on its ID.
+ * @param {string} orgId - The organisation ID.
+ * @returns {Promise<object>} The organisation object.
+ */
+const getOrganisationById = async (orgId) => {
+  const query = `
+    SELECT * FROM organisations
+    WHERE orgid = $1;
   `;
-  const { rows } = await db.query(queryText, [userId]);
-  return rows;
+  const values = [orgId];
+
+  try {
+    const { rows } = await db.query(query, values);
+    return rows[0];
+  } catch (error) {
+    throw error;
+  }
+};
+
+/**
+ * Adds a user to an organisation in the database.
+ * @param {string} orgId - The organisation ID.
+ * @param {string} userId - The user ID to add to the organisation.
+ */
+const addUserToOrganisation = async (orgId, userId) => {
+  const query = `
+    INSERT INTO organisation_users (orgid, userid)
+    VALUES ($1, $2)
+    ON CONFLICT DO NOTHING;  -- Avoids duplicate entries if already exists
+  `;
+  const values = [orgId, userId];
+
+  try {
+    await db.query(query, values);
+  } catch (error) {
+    throw error;
+  }
 };
 
 module.exports = {
-  createOrganisationTable,
   createOrganisation,
-  getOrganisationsByUserId,
+  getOrganisationById,
+  addUserToOrganisation,
 };

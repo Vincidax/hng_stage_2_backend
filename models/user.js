@@ -1,40 +1,55 @@
 const db = require('../db');
-const bcrypt = require('bcryptjs');
+const { v4: uuidv4 } = require('uuid');
 
-const createUserTable = async () => {
-  const queryText = `
-    CREATE TABLE IF NOT EXISTS users (
-      userId SERIAL PRIMARY KEY,
-      firstName VARCHAR(255) NOT NULL,
-      lastName VARCHAR(255) NOT NULL,
-      email VARCHAR(255) UNIQUE NOT NULL,
-      password VARCHAR(255) NOT NULL,
-      phone VARCHAR(50)
-    );
-  `;
-  await db.query(queryText);
-};
+/**
+ * Creates a new organisation in the database.
+ * @param {string} name - The organisation's name.
+ * @param {string} description - The organisation's description.
+ * @returns {Promise<object>} The created organisation object.
+ */
+const createOrganisation = async (name, description) => {
+  if (!name) {
+    throw new Error('The name field is required.');
+  }
 
-const createUser = async (user) => {
-  const hashedPassword = await bcrypt.hash(user.password, 10);
-  const queryText = `
-    INSERT INTO users (firstName, lastName, email, password, phone)
-    VALUES ($1, $2, $3, $4, $5)
+  const orgId = uuidv4();
+  const query = `
+    INSERT INTO organisations (orgId, name, description)
+    VALUES ($1, $2, $3)
     RETURNING *;
   `;
-  const values = [user.firstName, user.lastName, user.email, hashedPassword, user.phone];
-  const { rows } = await db.query(queryText, values);
-  return rows[0];
+  const values = [orgId, name, description];
+
+  try {
+    const { rows } = await db.query(query, values);
+    return rows[0];
+  } catch (error) {
+    throw error;
+  }
 };
 
-const findUserByEmail = async (email) => {
-  const queryText = 'SELECT * FROM users WHERE email = $1';
-  const { rows } = await db.query(queryText, [email]);
-  return rows[0];
+/**
+ * Retrieves organisations by userId from the database.
+ * @param {string} userId - The user's ID.
+ * @returns {Promise<Array>} The list of organisations.
+ */
+const getOrganisationsByUserId = async (userId) => {
+  const query = `
+    SELECT o.* FROM organisations o
+    JOIN user_organisations uo ON o.orgId = uo.orgId
+    WHERE uo.userId = $1;
+  `;
+  const values = [userId];
+
+  try {
+    const { rows } = await db.query(query, values);
+    return rows;
+  } catch (error) {
+    throw error;
+  }
 };
 
 module.exports = {
-  createUserTable,
-  createUser,
-  findUserByEmail,
+  createOrganisation,
+  getOrganisationsByUserId,
 };

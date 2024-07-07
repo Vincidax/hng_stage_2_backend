@@ -1,71 +1,110 @@
-// authController.js
-
-const User = require('../models/user'); // Replace with your User model import
-const jwt = require('jsonwebtoken');
+const { validationResult } = require('express-validator');
 const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
+const User = require('../models/user');
+const Organisation = require('../models/organisation');
+const { v4: uuidv4 } = require('uuid');
 
-const registerUser = async (req, res) => {
-  const { name, email, password } = req.body;
-
-  // Validate required fields
-  if (!name || !email || !password) {
-    return res.status(422).json({ error: 'Name, email, and password are required' });
+const register = async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(422).json({ errors: errors.array() });
   }
 
+  const { firstName, lastName, email, password, phone } = req.body;
+
   try {
-    // Check if user already exists
-    let existingUser = await User.findOne({ email });
+    const existingUser = await User.findByEmail(email);
     if (existingUser) {
-      return res.status(409).json({ error: 'User already exists' }); // Conflict status code
+      return res.status(400).json({ message: 'Email already in use' });
     }
 
-    // Create new user
-    const newUser = await User.create({ name, email, password });
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const user = await User.create({
+      userId: uuidv4(),
+      firstName,
+      lastName,
+      email,
+      password: hashedPassword,
+      phone,
+    });
 
-    return res.status(201).json({
+    const org = await Organisation.create({
+      orgId: uuidv4(),
+      name: `${firstName}'s Organisation`,
+      description: 'Default organisation',
+      userId: user.userId,
+    });
+
+    const token = jwt.sign({ userId: user.userId }, process.env.JWT_SECRET, { expiresIn: '1h' });
+
+    res.status(201).json({
       status: 'success',
       message: 'User registered successfully',
-      data: { user: newUser },
+      data: {
+        accessToken: token,
+        user: {
+          userId: user.userId,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          email: user.email,
+          phone: user.phone,
+        },
+        organisation: org,
+      },
     });
   } catch (error) {
-    return res.status(500).json({ error: error.message });
+    return res.status(500).json({
+      status: 'error',
+      message: 'Internal Server Error',
+    });
   }
 };
 
-const loginUser = async (req, res) => {
+const login = async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(422).json({ errors: errors.array() });
+  }
+
   const { email, password } = req.body;
 
   try {
-    // Check if user exists
-    const user = await User.findOne({ email });
-    if (!user || !(await bcrypt.compare(password, user.password))) {
-      return res.status(401).json({ error: 'Invalid credentials' });
+    const user = await User.findByEmail(email);
+    if (!user) {
+      return res.status(401).json({ message: 'Authentication failed' });
     }
 
-    // Generate JWT token (example function)
-    const token = generateAuthToken(user);
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+    if (!isPasswordValid) {
+      return res.status(401).json({ message: 'Authentication failed' });
+    }
 
-    return res.status(200).json({
+    const token = jwt.sign({ userId: user.userId }, process.env.JWT_SECRET, { expiresIn: '1h' });
+
+    res.status(200).json({
       status: 'success',
-      message: 'User logged in successfully',
-      data: { token },
+      message: 'Login successful',
+      data: {
+        accessToken: token,
+        user: {
+          userId: user.userId,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          email: user.email,
+          phone: user.phone,
+        },
+      },
     });
   } catch (error) {
-    return res.status(500).json({ error: error.message });
+    return res.status(500).json({
+      status: 'error',
+      message: 'Internal Server Error',
+    });
   }
 };
 
-function generateAuthToken(user) {
-  const payload = {
-    user: {
-      id: user.id,
-    },
-  };
-
-  return jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '1h' }); // Example expiration time
-}
-
 module.exports = {
-  registerUser,
-  loginUser,
+  register,
+  login,
 };

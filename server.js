@@ -1,39 +1,39 @@
+require('dotenv').config(); // Load environment variables
+
 const express = require('express');
 const bodyParser = require('body-parser');
-const dotenv = require('dotenv');
-const cors = require('cors');
-const { createUserTable } = require('./models/user');
-const { createOrganisationTable } = require('./models/organisation');
+const authRouter = require('./routes/auth');
+const organisationsRouter = require('./routes/organisations');
+const authMiddleware = require('./middleware/authMiddleware');
 
-// Load environment variables
-dotenv.config();
-
-// Initialize Express app
 const app = express();
+const PORT = process.env.PORT || 3000;
 
 // Middleware
 app.use(bodyParser.json());
-app.use(cors());
+app.use(bodyParser.urlencoded({ extended: true }));
 
-// Import routes
-const authRoutes = require('./routes/auth');
-const organisationRoutes = require('./routes/organisations');
+// Routes that don't require authentication
+app.use('/auth', authRouter);
 
-// Route middleware
-app.use('/auth', authRoutes);
-app.use('/api/organisations', organisationRoutes);
+// Middleware for authentication
+app.use(authMiddleware);
 
-// Root route
-app.get('/', (req, res) => {
-    res.send('Welcome to the User Authentication API');
+// Routes that require authentication
+app.use('/api/organisations', organisationsRouter);
+
+// Error handling middleware
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res.status(500).json({
+    status: 'error',
+    message: 'Internal Server Error',
+  });
 });
 
-// Start the server
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, async () => {
-    await createUserTable();
-    await createOrganisationTable();
-    console.log(`Server is running on port ${PORT}`);
+// Start server
+const server = app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
 });
 
-module.exports = app;
+module.exports = server; // Export server for testing purposes

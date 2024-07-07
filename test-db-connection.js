@@ -1,5 +1,3 @@
-// test-db-connection.js
-
 const { Pool } = require('pg');
 const dotenv = require('dotenv');
 
@@ -28,5 +26,21 @@ async function testConnection() {
   }
 }
 
-// Run the test function
-testConnection();
+// Function to clear the database
+async function clearDatabase() {
+  let client;
+  try {
+    client = await pool.connect();
+    await client.query('TRUNCATE TABLE users CASCADE');
+    await client.query('TRUNCATE TABLE organisations CASCADE');
+    console.log('Tables truncated.');
+  } catch (error) {
+    console.error('Error truncating tables:', error.message);
+  } finally {
+    if (client) {
+      client.release();
+    }
+  }
+}
+
+module.exports = { testConnection, clearDatabase, pool };
