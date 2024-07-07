@@ -1,4 +1,4 @@
-const { createOrganisation, getOrganisationsByUserId } = require('../models/organisation');
+const { createOrganisation, getOrganisationsByUserId, getOrganisationById, addUserToOrganisation } = require('../models/organisation');
 
 const getOrganisations = async (req, res) => {
   const userId = req.user.userId;
@@ -15,7 +15,7 @@ const getOrganisations = async (req, res) => {
   }
 };
 
-const getOrganisationById = async (req, res) => {
+const getOrganisationByIdController = async (req, res) => {
   const { orgId } = req.params;
 
   try {
@@ -38,7 +38,7 @@ const getOrganisationById = async (req, res) => {
   }
 };
 
-const createOrganisation = async (req, res) => {
+const createNewOrganisation = async (req, res) => {
   const { name, description } = req.body;
   const userId = req.user.userId;
 
@@ -61,7 +61,7 @@ const createOrganisation = async (req, res) => {
   }
 };
 
-const addUserToOrganisation = async (req, res) => {
+const addUserToOrganisationController = async (req, res) => {
   const { orgId } = req.params;
   const { userId } = req.body;
 
@@ -84,7 +84,7 @@ const addUserToOrganisation = async (req, res) => {
 
 module.exports = {
   getOrganisations,
-  getOrganisationById,
-  createOrganisation,
-  addUserToOrganisation,
+  getOrganisationById: getOrganisationByIdController,
+  createNewOrganisation,
+  addUserToOrganisation: addUserToOrganisationController,
 };
